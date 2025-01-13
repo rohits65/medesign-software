@@ -18,7 +18,6 @@ class WorkoutApp(QMainWindow):
         self.setWindowTitle(self.appName)
         self.setGeometry(100, 100, 800, 600)
 
-        # Central widget setup
         self.central_widget = QStackedWidget()
         self.setCentralWidget(self.central_widget)
 
@@ -26,7 +25,6 @@ class WorkoutApp(QMainWindow):
         self.home_page = create_home_page(self)
         self.stats_page = create_stats_page(self)
 
-        # Add pages to the stacked widget -- change to format
         self.central_widget.addWidget(self.home_page)
         self.central_widget.addWidget(self.stats_page)
 

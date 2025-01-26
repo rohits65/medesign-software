@@ -1,44 +1,24 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QScrollArea, QScrollBar, QLineEdit, QSpinBox, QDialog, 
-    QFormLayout, QTextEdit
+    QLabel, QPushButton, QScrollArea
 )
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl
 import os
 
-from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QComboBox
-)
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import QTimer, Qt
-
-
 class SensorFeedbackPage(QWidget):
-    def __init__(self, app):
+    def __init__(self, app, workout_name):
         super().__init__()
         self.app = app
-        
-        self.current_step = 0
-        self.reps_completed = 0
-        self.reps = 0
+        self.workout_name = workout_name
         self.workouts = {
-            "Full Body": {
-                "steps": ["Warm-up: Jumping Jacks", "Squats", "Push-ups", "Cool down: Stretch"],
-                "reps": 3,
-            },
-            "Cardio": {
-                "steps": ["Warm-up: Light Jogging", "High Knees", "Burpees", "Cool down: Walk"],
-                "reps": 5,
-            },
-            "Strength": {
-                "steps": ["Warm-up: Arm Circles", "Deadlifts", "Bench Press", "Cool down: Relax"],
-                "reps": 4,
-            },
+            "Workout 1": ["Warm-up: Jumping Jacks", "Squats", "Push-ups", "Cool down: Stretch"],
+            "Workout 2": ["Warm-up: Light Jogging", "High Knees", "Burpees", "Cool down: Walk"],
+            "Workout 3": ["Warm-up: Arm Circles", "Deadlifts", "Bench Press", "Cool down: Relax"],
         }
         self.initUI()
 
@@ -46,33 +26,16 @@ class SensorFeedbackPage(QWidget):
         self.setStyleSheet("background-color: #2a2a2a; color: #ff9e5e;")
         layout = QVBoxLayout()
 
-        # Title
-        title = QLabel("Sensor Data & Feedback")
+        title = QLabel(f"Sensor Feedback: {self.workout_name}")
         title.setFont(QFont("Arial", 24))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
-
-        # Labels for sensor data and feedback
-        self.sensor_data_label = QLabel("Heart Rate: -- BPM")
-        self.sensor_data_label.setStyleSheet("font-size: 16px;")
-        layout.addWidget(self.sensor_data_label)
-
-        self.feedback_label = QLabel("Select a workout to start.")
-        self.feedback_label.setStyleSheet("font-size: 16px;")
-        layout.addWidget(self.feedback_label)
 
         self.steps_label = QLabel("Steps will appear here.")
         self.steps_label.setWordWrap(True)
         self.steps_label.setStyleSheet("font-size: 16px;")
         layout.addWidget(self.steps_label)
 
-        # Workout selection dropdown
-        self.workout_selector = QComboBox()
-        self.workout_selector.addItems(self.workouts.keys())
-        self.workout_selector.setStyleSheet("font-size: 16px; padding: 5px;")
-        layout.addWidget(self.workout_selector)
-
-        # Buttons
         start_button = QPushButton("Start Workout")
         start_button.setStyleSheet(
             "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
@@ -80,45 +43,20 @@ class SensorFeedbackPage(QWidget):
         start_button.clicked.connect(self.start_workout)
         layout.addWidget(start_button)
 
-        back_button = QPushButton("Back to Tutorial")
+        back_button = QPushButton("Back to Home")
         back_button.setStyleSheet(
             "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
         )
-        back_button.clicked.connect(self.go_to_tutorial)
+        back_button.clicked.connect(self.go_to_home)
         layout.addWidget(back_button)
 
         self.setLayout(layout)
 
     def start_workout(self):
-        selected_workout = self.workout_selector.currentText()
-        workout = self.workouts[selected_workout]
-        self.steps = workout["steps"]
-        self.reps = workout["reps"]
-        self.current_step = 0
-        self.reps_completed = 0
-        self.steps_label.setText("")
-        self.feedback_label.setText(f"Starting '{selected_workout}' workout: {self.reps} reps")
-        self.start_cycle()
+        steps = self.workouts.get(self.workout_name, [])
+        self.steps_label.setText("\n".join(steps))
 
-    def start_cycle(self):
-        if self.reps_completed >= self.reps:
-            self.feedback_label.setText("Workout complete! Great job!")
-            return
-
-        self.display_step()
-
-    def display_step(self):
-        if self.current_step < len(self.steps):
-            self.steps_label.setText(f"Step {self.current_step + 1}: {self.steps[self.current_step]}")
-            self.current_step += 1
-            QTimer.singleShot(2000, self.display_step)  # Show next step after 2 seconds
-        else:
-            self.reps_completed += 1
-            self.current_step = 0
-            self.feedback_label.setText(f"Cycle completed! Reps done: {self.reps_completed}/{self.reps}")
-            QTimer.singleShot(3000, self.start_cycle)  # Start next cycle after 3 seconds
-
-    def go_to_tutorial(self):
+    def go_to_home(self):
         self.app.central_widget.setCurrentWidget(self.app.home_page)
 
 class HomePage(QWidget):
@@ -137,28 +75,60 @@ class HomePage(QWidget):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        # Scrollable horizontal workout list
-        scroll_area = QScrollArea()
-        scroll_area.setStyleSheet("border: none;")
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setWidgetResizable(True)
+        workout_label = QLabel("Select a workout:")
+        workout_label.setFont(QFont("Arial", 18))
+        workout_label.setStyleSheet("color: #ff9e5e;")
+        layout.addWidget(workout_label)
 
-        workout_list_widget = QWidget()
-        workout_list_layout = QHBoxLayout()
-
-        workouts = ["Workout 1", "Workout 2", "Workout 3", "Workout 4", "Workout 5"]
+        workouts = ["Workout 1", "Workout 2", "Workout 3"]
         for workout in workouts:
             button = QPushButton(workout)
             button.setStyleSheet(
                 "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
             )
-            button.clicked.connect(lambda _, w=workout: self.app.open_tutorial(w))
-            workout_list_layout.addWidget(button)
+            button.clicked.connect(lambda _, w=workout: self.app.open_sensor_feedback(w))
+            layout.addWidget(button)
 
-        workout_list_widget.setLayout(workout_list_layout)
-        scroll_area.setWidget(workout_list_widget)
-        layout.addWidget(scroll_area)
+        tutorials_button = QPushButton("Go to Tutorials")
+        tutorials_button.setStyleSheet(
+            "background-color: #ff7f32; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+        )
+        tutorials_button.clicked.connect(self.app.open_tutorials_page)
+        layout.addWidget(tutorials_button)
+
+        self.setLayout(layout)
+
+class TutorialsPage(QWidget):
+    def __init__(self, app):
+        super().__init__()
+        self.app = app
+        self.initUI()
+
+    def initUI(self):
+        self.setStyleSheet("background-color: #2a2a2a;")
+        layout = QVBoxLayout()
+
+        title = QLabel("Workout Tutorials")
+        title.setFont(QFont("Arial", 24))
+        title.setStyleSheet("color: #ff7f32;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        tutorials = ["Workout 1", "Workout 2", "Workout 3"]
+        for tutorial in tutorials:
+            button = QPushButton(f"Tutorial: {tutorial}")
+            button.setStyleSheet(
+                "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+            )
+            button.clicked.connect(lambda _, t=tutorial: self.app.open_tutorial(t))
+            layout.addWidget(button)
+
+        back_button = QPushButton("Back to Home")
+        back_button.setStyleSheet(
+            "background-color: #ff7f32; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+        )
+        back_button.clicked.connect(lambda: self.app.central_widget.setCurrentWidget(self.app.home_page))
+        layout.addWidget(back_button)
 
         self.setLayout(layout)
 
@@ -196,32 +166,14 @@ class TutorialPage(QWidget):
 
         layout.addWidget(video_widget)
 
-        button_layout = QVBoxLayout()
-
-        next_button = QPushButton("Next")
-        next_button.setStyleSheet(
-            "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
-        )
-        next_button.clicked.connect(self.go_to_sensor_feedback)
-        button_layout.addWidget(next_button)
-
-        back_button = QPushButton("Back")
+        back_button = QPushButton("Back to Tutorials")
         back_button.setStyleSheet(
             "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
         )
-        back_button.clicked.connect(self.go_to_home)
-        button_layout.addWidget(back_button)
+        back_button.clicked.connect(lambda: self.app.central_widget.setCurrentWidget(self.app.tutorials_page))
+        layout.addWidget(back_button)
 
-        layout.addLayout(button_layout)
         self.setLayout(layout)
-
-    def go_to_home(self):
-        self.app.central_widget.setCurrentWidget(self.app.home_page)
-
-    def go_to_sensor_feedback(self):
-        sensor_feedback_page = SensorFeedbackPage(self.app)
-        self.app.central_widget.addWidget(sensor_feedback_page)
-        self.app.central_widget.setCurrentWidget(sensor_feedback_page)
 
 class WorkoutApp(QMainWindow):
     def __init__(self):
@@ -237,7 +189,18 @@ class WorkoutApp(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         self.home_page = HomePage(self)
+        self.tutorials_page = TutorialsPage(self)
+
         self.central_widget.addWidget(self.home_page)
+        self.central_widget.addWidget(self.tutorials_page)
+
+    def open_sensor_feedback(self, workout_name):
+        sensor_feedback_page = SensorFeedbackPage(self, workout_name)
+        self.central_widget.addWidget(sensor_feedback_page)
+        self.central_widget.setCurrentWidget(sensor_feedback_page)
+
+    def open_tutorials_page(self):
+        self.central_widget.setCurrentWidget(self.tutorials_page)
 
     def open_tutorial(self, workout):
         tutorial_page = TutorialPage(self, workout)

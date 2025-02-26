@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QScrollArea
+    QLabel, QPushButton, QScrollArea, QDialog, QFormLayout, QSpinBox
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer
@@ -10,21 +10,42 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl
 import os
 
+def create_back_button(callback):
+    back_button = QPushButton("Back")
+    back_button.setStyleSheet(
+        "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+    )
+    back_button.clicked.connect(callback)
+    return back_button
+
 class SensorFeedbackPage(QWidget):
     def __init__(self, app, workout_name):
         super().__init__()
         self.app = app
         self.workout_name = workout_name
         self.workouts = {
-            "Workout 1": ["Warm-up: Jumping Jacks", "Squats", "Push-ups", "Cool down: Stretch"],
-            "Workout 2": ["Warm-up: Light Jogging", "High Knees", "Burpees", "Cool down: Walk"],
-            "Workout 3": ["Warm-up: Arm Circles", "Deadlifts", "Bench Press", "Cool down: Relax"],
+            "Lat Pulldown": ["Step1", "Step2", "Step3", "Step4", "Step5"],
+            "Lying Pullover": ["Step1", "Step2", "Step3", "Step4", "Step5"],
+            "Seated Row": [
+                "Sit down and grasp the handles.",
+                "Keep your back straight and chest up.",
+                "Pull the handles towards your torso.",
+                "Pause briefly at the top of the movement.",
+                "Slowly return to the starting position."
+                ],
+            "Kneeling Crunch": ["Step1", "Step2", "Step3", "Step4", "Step5"],
+            "Face Pulls": ["Step1", "Step2", "Step3", "Step4", "Step5"],
         }
+        self.current_step = 0
+        self.reps = 1  # Default reps
         self.initUI()
 
     def initUI(self):
         self.setStyleSheet("background-color: #2a2a2a; color: #ff9e5e;")
         layout = QVBoxLayout()
+
+        back_button = create_back_button(self.go_to_home)
+        layout.addWidget(back_button, alignment=Qt.AlignLeft)
 
         title = QLabel(f"Sensor Feedback: {self.workout_name}")
         title.setFont(QFont("Arial", 24))
@@ -33,8 +54,22 @@ class SensorFeedbackPage(QWidget):
 
         self.steps_label = QLabel("Steps will appear here.")
         self.steps_label.setWordWrap(True)
-        self.steps_label.setStyleSheet("font-size: 16px;")
+        self.steps_label.setStyleSheet("font-size: 24px; margin-bottom: 5px;")
+        self.steps_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.steps_label)
+
+        self.feedback_label = QLabel("Feedback will appear here.")
+        self.feedback_label.setWordWrap(True)
+        self.feedback_label.setStyleSheet("font-size: 24px; margin-top: 5px;")
+        self.feedback_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.feedback_label)
+
+        settings_button = QPushButton("Workout Settings")
+        settings_button.setStyleSheet(
+            "background-color: #ff7f32; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+        )
+        settings_button.clicked.connect(self.open_settings_dialog)
+        layout.addWidget(settings_button)
 
         start_button = QPushButton("Start Workout")
         start_button.setStyleSheet(
@@ -43,21 +78,69 @@ class SensorFeedbackPage(QWidget):
         start_button.clicked.connect(self.start_workout)
         layout.addWidget(start_button)
 
-        back_button = QPushButton("Back to Home")
-        back_button.setStyleSheet(
-            "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
-        )
-        back_button.clicked.connect(self.go_to_home)
-        layout.addWidget(back_button)
-
         self.setLayout(layout)
 
+    def open_settings_dialog(self):
+        dialog = WorkoutSettingsDialog(self)
+        if dialog.exec_():
+            self.reps = dialog.reps_input.value()
+
     def start_workout(self):
+        self.current_step = 0
+        self.reps_done = 0
+        self.show_step()
+
+    def show_step(self):
         steps = self.workouts.get(self.workout_name, [])
-        self.steps_label.setText("\n".join(steps))
+        if self.reps_done < self.reps:
+            if self.current_step < len(steps):
+                self.steps_label.setText(steps[self.current_step])
+                self.current_step += 1
+                QTimer.singleShot(2000, self.show_step)  # Show next step after 2 seconds
+            else:
+                self.reps_done += 1
+                self.current_step = 0
+                self.steps_label.setText(f"Cycle {self.reps_done} complete. Restarting...")
+                QTimer.singleShot(2000, self.show_step)
+        else:
+            self.steps_label.setText("Workout complete!")
 
     def go_to_home(self):
         self.app.central_widget.setCurrentWidget(self.app.home_page)
+
+class WorkoutSettingsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Workout Settings")
+        self.setStyleSheet("background-color: #2a2a2a; color: #ff9e5e;")
+        self.initUI()
+
+    def initUI(self):
+        layout = QFormLayout()
+
+        self.reps_input = QSpinBox()
+        self.reps_input.setRange(1, 10)
+        self.reps_input.setValue(1)
+        self.reps_input.setStyleSheet("font-size: 16px;")
+        layout.addRow("Number of Reps:", self.reps_input)
+
+        buttons_layout = QHBoxLayout()
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(self.accept)
+        ok_button.setStyleSheet(
+            "background-color: #ff9e5e; color: #333333; padding: 5px; font-size: 14px; border-radius: 5px;"
+        )
+        buttons_layout.addWidget(ok_button)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        cancel_button.setStyleSheet(
+            "background-color: #ff7f32; color: #333333; padding: 5px; font-size: 14px; border-radius: 5px;"
+        )
+        buttons_layout.addWidget(cancel_button)
+
+        layout.addRow(buttons_layout)
+        self.setLayout(layout)
 
 class HomePage(QWidget):
     def __init__(self, app):
@@ -75,19 +158,39 @@ class HomePage(QWidget):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        workout_label = QLabel("Select a workout:")
-        workout_label.setFont(QFont("Arial", 18))
-        workout_label.setStyleSheet("color: #ff9e5e;")
-        layout.addWidget(workout_label)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: #2a2a2a; border: none;")
 
-        workouts = ["Workout 1", "Workout 2", "Workout 3"]
+        scroll_widget = QWidget()
+        scroll_layout = QHBoxLayout(scroll_widget)
+        scroll_widget.setLayout(scroll_layout)
+
+        button_layout = QVBoxLayout()
+        button_layout.addWidget(scroll_area)
+        button_layout.setAlignment(Qt.AlignCenter)
+
+        layout.addLayout(button_layout)
+
+        workouts = ["Lat Pulldown",
+            "Lying Pullover",
+            "Seated Row",
+            "Kneeling Crunch",
+            "Face Pulls"
+        ]
+        
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
         for workout in workouts:
             button = QPushButton(workout)
             button.setStyleSheet(
-                "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
+            "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px; width: 250px"
             )
             button.clicked.connect(lambda _, w=workout: self.app.open_sensor_feedback(w))
-            layout.addWidget(button)
+            scroll_layout.addWidget(button)
+
+        scroll_area.setWidget(scroll_widget)
 
         tutorials_button = QPushButton("Go to Tutorials")
         tutorials_button.setStyleSheet(
@@ -108,27 +211,39 @@ class TutorialsPage(QWidget):
         self.setStyleSheet("background-color: #2a2a2a;")
         layout = QVBoxLayout()
 
+        back_button = create_back_button(lambda: self.app.central_widget.setCurrentWidget(self.app.home_page))
+        layout.addWidget(back_button, alignment=Qt.AlignLeft)
+
         title = QLabel("Workout Tutorials")
         title.setFont(QFont("Arial", 24))
         title.setStyleSheet("color: #ff7f32;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        tutorials = ["Workout 1", "Workout 2", "Workout 3"]
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: #2a2a2a; border: none;")
+
+        scroll_widget = QWidget()
+        scroll_layout = QHBoxLayout(scroll_widget)
+        scroll_widget.setLayout(scroll_layout)
+
+        tutorials = ["Lat Pulldown",
+            "Lying Pullover",
+            "Seated Row",
+            "Kneeling Crunch",
+            "Face Pulls"
+        ]
         for tutorial in tutorials:
-            button = QPushButton(f"Tutorial: {tutorial}")
+            button = QPushButton(f"{tutorial}")
             button.setStyleSheet(
                 "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
             )
             button.clicked.connect(lambda _, t=tutorial: self.app.open_tutorial(t))
-            layout.addWidget(button)
+            scroll_layout.addWidget(button)
 
-        back_button = QPushButton("Back to Home")
-        back_button.setStyleSheet(
-            "background-color: #ff7f32; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
-        )
-        back_button.clicked.connect(lambda: self.app.central_widget.setCurrentWidget(self.app.home_page))
-        layout.addWidget(back_button)
+        scroll_area.setWidget(scroll_widget)
+        layout.addWidget(scroll_area)
 
         self.setLayout(layout)
 
@@ -142,6 +257,9 @@ class TutorialPage(QWidget):
     def initUI(self):
         self.setStyleSheet("background-color: #2a2a2a;")
         layout = QVBoxLayout()
+
+        back_button = create_back_button(lambda: self.app.central_widget.setCurrentWidget(self.app.tutorials_page))
+        layout.addWidget(back_button, alignment=Qt.AlignLeft)
 
         title = QLabel(f"Tutorial for {self.workout}")
         title.setFont(QFont("Arial", 20))
@@ -165,13 +283,6 @@ class TutorialPage(QWidget):
             layout.addWidget(error_label)
 
         layout.addWidget(video_widget)
-
-        back_button = QPushButton("Back to Tutorials")
-        back_button.setStyleSheet(
-            "background-color: #ff9e5e; color: #333333; padding: 10px; font-size: 16px; border-radius: 5px;"
-        )
-        back_button.clicked.connect(lambda: self.app.central_widget.setCurrentWidget(self.app.tutorials_page))
-        layout.addWidget(back_button)
 
         self.setLayout(layout)
 
